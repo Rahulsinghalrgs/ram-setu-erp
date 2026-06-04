@@ -2,13 +2,55 @@ import Image from "next/image";
 import Link from "next/link";
 import { CalendarDays, LogOut, Menu, Search, ShieldCheck, Truck, Users } from "lucide-react";
 import { signOut } from "@/app/actions";
+import { getAppContext } from "@/lib/erp-queries";
 
-export function Topbar() {
+export async function Topbar() {
+  const access = await getAppContext();
+  const isAdmin = access.isAdmin;
   const todayLabel = new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "short",
     timeZone: "Asia/Kolkata"
   }).format(new Date());
+
+  const signOutButton = (
+    <form action={signOut} className="ml-auto">
+      <button
+        type="submit"
+        className="inline-flex h-10 items-center gap-2 rounded-md border bg-white px-3 text-sm font-semibold text-rose-600 shadow-sm hover:bg-rose-50"
+        title="Sign out"
+      >
+        <LogOut className="h-4 w-4" aria-hidden="true" />
+        <span className="hidden sm:inline">Sign out</span>
+      </button>
+    </form>
+  );
+
+  // Non-admin team members get a clean header: just brand + sign out. No sidebar
+  // toggle, search or module shortcuts — they only work from their task dashboard.
+  if (!isAdmin) {
+    return (
+      <header className="sticky top-0 z-20 flex min-h-16 items-center gap-3 border-b bg-white/94 px-4 shadow-sm backdrop-blur-xl md:px-6">
+        <div className="flex items-center gap-2">
+          <span className="flex h-10 w-16 items-center justify-center overflow-hidden rounded-md border bg-white p-1">
+            <Image
+              src="/brand/richa-group-logo.jpeg"
+              alt="Richa Group"
+              width={84}
+              height={34}
+              className="h-full w-full object-contain"
+              priority
+            />
+          </span>
+          <div className="hidden sm:block">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">My Workspace</p>
+            <p className="text-sm font-semibold text-slate-900">Ram Setu ERP</p>
+          </div>
+        </div>
+        {signOutButton}
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-20 flex min-h-16 items-center gap-3 border-b bg-white/94 px-4 pl-16 shadow-sm backdrop-blur-xl md:px-6 lg:pl-5">
@@ -47,10 +89,13 @@ export function Topbar() {
         <CalendarDays className="h-4 w-4" aria-hidden="true" />
         {todayLabel}
       </button>
-      <button className="hidden h-10 items-center gap-2 rounded-md border bg-white px-3 text-sm font-medium text-primary shadow-sm md:inline-flex">
+      <Link
+        href="/dashboard/users"
+        className="hidden h-10 items-center gap-2 rounded-md border bg-white px-3 text-sm font-medium text-primary shadow-sm md:inline-flex"
+      >
         <ShieldCheck className="h-4 w-4" aria-hidden="true" />
         Admin
-      </button>
+      </Link>
       <button className="hidden h-10 items-center gap-2 rounded-md border bg-white px-2 pr-3 text-sm font-semibold shadow-sm md:inline-flex">
         <Image
           src="/brand/richa-group-logo.jpeg"
@@ -61,16 +106,7 @@ export function Topbar() {
         />
         Ram Setu ERP
       </button>
-      <form action={signOut} className="ml-auto md:ml-0">
-        <button
-          type="submit"
-          className="inline-flex h-10 items-center gap-2 rounded-md border bg-white px-3 text-sm font-semibold text-rose-600 shadow-sm hover:bg-rose-50"
-          title="Sign out"
-        >
-          <LogOut className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Sign out</span>
-        </button>
-      </form>
+      {signOutButton}
     </header>
   );
 }

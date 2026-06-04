@@ -869,35 +869,24 @@ export function InvoiceForm({ customers }: { customers: Option[] }) {
 export function TeamLoginForm() {
   return (
     <div className="grid gap-4">
-      <form action={createTeamMemberLogin} className="grid gap-3 rounded-md border bg-white/95 p-4 shadow-sm md:grid-cols-4">
-        <Field name="full_name" label="Doer name" placeholder="Sales executive" required />
-        <Field name="email" label="Work email" type="email" placeholder="team@richagroup.co" required />
-        <Field name="password" label="Temporary password" type="password" placeholder="Minimum 8 characters" required />
+      <form action={createTeamMemberLogin} className="grid gap-3 rounded-md border bg-white/95 p-4 shadow-sm md:grid-cols-3">
+        <Field name="employee_code" label="Employee code" placeholder="RG0028" required />
+        <Field name="full_name" label="Name" placeholder="Employee name" required />
+        <Field name="phone" label="Number" placeholder="9876543210" />
+        <Field name="email" label="Email" type="email" placeholder="team@richagroup.co" required />
+        <Field name="department" label="Department" placeholder="Sales / Accounts / Operations" />
+        <Field name="designation" label="Designation" placeholder="Sales Executive" />
+        <Field name="password" label="Password" type="password" placeholder="Minimum 8 characters" required />
         <label className="block text-sm">
           <span className="font-medium">Role</span>
           <select name="role" defaultValue="staff" className="mt-1 h-10 w-full rounded-md border bg-white px-3">
-            <option value="staff">Staff</option>
-            <option value="manager">Manager</option>
-            <option value="admin">Admin</option>
+            <option value="staff">Staff (tasks only)</option>
+            <option value="manager">Manager (tasks only)</option>
+            <option value="admin">Admin (full access)</option>
           </select>
         </label>
-        <div className="grid gap-3 rounded-md bg-muted/40 p-3 md:col-span-4 md:grid-cols-2 xl:grid-cols-4">
-          {permissionModules.map((module) => (
-            <div key={module.key} className="rounded-md border bg-white p-3">
-              <p className="text-sm font-semibold">{module.label}</p>
-              <label className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <input name={`permission_${module.key}_view`} type="checkbox" defaultChecked className="h-4 w-4" />
-                View
-              </label>
-              <label className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <input name={`permission_${module.key}_edit`} type="checkbox" className="h-4 w-4" />
-                Work / edit
-              </label>
-            </div>
-          ))}
-        </div>
-        <div className="md:col-span-4">
-          <Submit>Create doer login</Submit>
+        <div className="flex items-end md:col-span-3">
+          <Submit>Create user login</Submit>
         </div>
       </form>
       <form action={createTeamLoginLink} className="grid gap-3 rounded-md border bg-white/95 p-4 shadow-sm md:grid-cols-[1fr_auto]">

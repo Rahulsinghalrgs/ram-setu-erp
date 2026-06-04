@@ -2861,6 +2861,10 @@ export async function createTeamMemberLogin(formData: FormData) {
   const email = text(formData, "email").toLowerCase();
   const fullName = text(formData, "full_name");
   const password = text(formData, "password");
+  const phone = normalizePhoneValue(text(formData, "phone"));
+  const department = text(formData, "department") || "General";
+  const designation = text(formData, "designation") || null;
+  const providedEmployeeCode = text(formData, "employee_code");
   const requestedRole = text(formData, "role") as AssignableMemberRole;
   const role: AssignableMemberRole = memberRoles.includes(requestedRole) ? requestedRole : "staff";
 
@@ -2939,19 +2943,23 @@ export async function createTeamMemberLogin(formData: FormData) {
 
   await admin.from("organization_member_permissions").upsert(permissions);
 
-  const employeeCode = `EMP-${email
-    .split("@")[0]
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")}`;
+  const employeeCode =
+    providedEmployeeCode ||
+    `EMP-${email
+      .split("@")[0]
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")}`;
   const employeePayload = {
     organization_id: organization.id,
     auth_user_id: userId,
     employee_code: employeeCode,
     full_name: fullName || email.split("@")[0],
     login_email: email,
+    phone: phone || null,
+    department,
+    designation,
     role,
-    department: "General",
     status: "active",
     app_access_status: "active"
   };

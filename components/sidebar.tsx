@@ -7,9 +7,9 @@ export async function Sidebar() {
   const access = await getAppContext();
 
   // Non-admin team members work only from their personal task dashboard, so no
-  // ERP module navigation is shown to them for now.
+  // sidebar / module navigation is rendered for them at all.
   if (!access.isAdmin) {
-    return <SidebarClient allowedGroupHrefs={[]} />;
+    return null;
   }
 
   const visibleGroups = sidebarGroups.filter((item) => {
