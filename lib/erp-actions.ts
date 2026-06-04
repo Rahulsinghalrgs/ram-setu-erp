@@ -2918,10 +2918,6 @@ export async function createTeamMemberLogin(formData: FormData) {
   const requestedRole = text(formData, "role") as AssignableMemberRole;
   const role: AssignableMemberRole = memberRoles.includes(requestedRole) ? requestedRole : "staff";
 
-  if (!email.endsWith("@richagroup.co")) {
-    throw new Error("Use a richagroup.co email address for team logins.");
-  }
-
   if (password.length < 8) {
     throw new Error("Team password must be at least 8 characters.");
   }
@@ -3093,10 +3089,6 @@ export async function bulkImportTeamLogins(formData: FormData) {
     const role: AssignableMemberRole = memberRoles.includes(requestedRole) ? requestedRole : "staff";
 
     if (!email) continue;
-    if (!email.endsWith("@richagroup.co")) {
-      skipped.push(`${email} (richagroup.co email required)`);
-      continue;
-    }
     if (password.length < 8) {
       skipped.push(`${email} (password 8+ characters)`);
       continue;

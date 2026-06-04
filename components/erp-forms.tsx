@@ -908,7 +908,7 @@ export function TeamLoginForm() {
         <Field name="employee_code" label="Employee code" placeholder="RG0028" required />
         <Field name="full_name" label="Name" placeholder="Employee name" required />
         <Field name="phone" label="Number" placeholder="9876543210" />
-        <Field name="email" label="Email" type="email" placeholder="team@richagroup.co" required />
+        <Field name="email" label="Email" type="email" placeholder="employee@company.com" required />
         <Field name="department" label="Department" placeholder="Sales / Accounts / Operations" />
         <Field name="designation" label="Designation" placeholder="Sales Executive" />
         <Field name="password" label="Password" type="password" placeholder="Minimum 8 characters" required />
@@ -925,7 +925,7 @@ export function TeamLoginForm() {
         </div>
       </form>
       <form action={createTeamLoginLink} className="grid gap-3 rounded-md border bg-white/95 p-4 shadow-sm md:grid-cols-[1fr_auto]">
-        <Field name="email" label="Magic link fallback" type="email" placeholder="team@richagroup.co" required />
+        <Field name="email" label="Magic link fallback" type="email" placeholder="employee@company.com" required />
         <div className="flex items-end">
           <Submit>Send backup link</Submit>
         </div>
@@ -953,7 +953,7 @@ export function TeamLoginBulkImportForm() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Bulk Add Users</p>
           <h2 className="text-xl font-semibold">Upload user CSV</h2>
           <p className="text-sm text-muted-foreground">
-            Ek saath multiple logins banayein. Email match hua to password reset hoga. Email richagroup.co aur password 8+ characters hona chahiye.
+            Ek saath multiple logins banayein. Email match hua to password reset hoga. Password 8+ characters hona chahiye.
           </p>
         </div>
         <a
