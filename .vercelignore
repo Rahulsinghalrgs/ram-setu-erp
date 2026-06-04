@@ -1,0 +1,9 @@
+.local
+node_modules
+.next
+.env
+.env*.local
+supabase/.branches
+supabase/.temp
+coverage
+Docker.dmg

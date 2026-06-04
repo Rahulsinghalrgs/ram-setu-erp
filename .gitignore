@@ -1,0 +1,20 @@
+.DS_Store
+.env
+.env*
+!.env.example
+!**/.env.example
+.env*.local
+.next
+.local
+.tools
+node_modules
+dist
+coverage
+supabase/.branches
+supabase/.temp
+.vercel
+*.zip
+*.pdf
+RAM_SETU_ERP_SOFTWARE_HANDOVER.html
+tsconfig.tsbuildinfo
+tally-bridge 2/

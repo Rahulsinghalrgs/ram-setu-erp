@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1e40af" />
+    <title>Ram Setu ERP | Field Operations</title>
+    <meta
+      name="description"
+      content="Ram Setu ERP field staff tracking module for check-in, checkout, GPS proof, meter photos, fuel records, and admin monitoring."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Ram Setu navigation">
+        <div class="brand-block">
+          <div class="brand-mark">S</div>
+          <div>
+            <strong>Ram Setu</strong>
+            <span>Richa Global Sales ERP</span>
+          </div>
+        </div>
+
+        <nav class="side-nav">
+          <button type="button" class="nav-item">
+            <span data-icon="layout-dashboard"></span>
+            Dashboard
+          </button>
+          <button type="button" class="nav-item">
+            <span data-icon="package"></span>
+            Inventory
+          </button>
+          <button type="button" class="nav-item">
+            <span data-icon="truck"></span>
+            Dispatch
+          </button>
+          <button type="button" class="nav-item active">
+            <span data-icon="map-pinned"></span>
+            Field Operations
+          </button>
+          <button type="button" class="nav-item">
+            <span data-icon="receipt-text"></span>
+            GST Billing
+          </button>
+          <button type="button" class="nav-item">
+            <span data-icon="settings"></span>
+            Settings
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <span>Live module preview</span>
+          <strong>Works offline after load</strong>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Operations Control</p>
+            <h1>Field Staff Tracking</h1>
+          </div>
+          <div class="top-actions">
+            <label class="role-switch">
+              <span>View</span>
+              <select id="role-select">
+                <option value="staff">Staff</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <button id="reset-demo" class="icon-button" type="button" aria-label="Reset demo data" title="Reset demo data">
+              <span data-icon="rotate-ccw"></span>
+            </button>
+          </div>
+        </header>
+
+        <section class="module-tabs" aria-label="Field operations tabs">
+          <button type="button" class="tab active" data-view="staff">
+            <span data-icon="user-check"></span>
+            Staff Trip
+          </button>
+          <button type="button" class="tab" data-view="admin">
+            <span data-icon="monitor-dot"></span>
+            Admin Monitor
+          </button>
+          <button type="button" class="tab" data-view="masters">
+            <span data-icon="database"></span>
+            Masters
+          </button>
+        </section>
+
+        <div id="notice-region" class="notice-region" aria-live="polite"></div>
+
+        <section id="staff-view" class="view active">
+          <div class="status-grid">
+            <article class="panel status-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Current Status</p>
+                  <h2 id="trip-status-title">No Open Trip</h2>
+                </div>
+                <span id="trip-status-badge" class="badge success">Ready</span>
+              </div>
+              <dl class="status-list">
+                <div>
+                  <dt>Staff</dt>
+                  <dd id="staff-name">Amit Sharma</dd>
+                </div>
+                <div>
+                  <dt>Vehicle</dt>
+                  <dd id="current-vehicle">Not assigned</dd>
+                </div>
+                <div>
+                  <dt>Check-in</dt>
+                  <dd id="current-checkin">-</dd>
+                </div>
+                <div>
+                  <dt>Location</dt>
+                  <dd id="current-location">GPS pending</dd>
+                </div>
+              </dl>
+            </article>
+
+            <article class="panel form-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Trip Action</p>
+                  <h2 id="form-title">Check In</h2>
+                </div>
+                <span data-icon="map-pin-check"></span>
+              </div>
+              <form id="trip-form" class="field-form"></form>
+            </article>
+          </div>
+
+          <article class="panel table-panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Staff Ledger</p>
+                <h2>Recent Trips</h2>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Vehicle</th>
+                    <th>Route</th>
+                    <th>Check-in</th>
+                    <th>Checkout</th>
+                    <th>Distance</th>
+                    <th>Fuel</th>
+                    <th>Proof</th>
+                  </tr>
+                </thead>
+                <tbody id="staff-trip-rows"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section id="admin-view" class="view">
+          <div class="metric-grid">
+            <article class="metric">
+              <span data-icon="route"></span>
+              <strong id="metric-trips">0</strong>
+              <p>Today trips</p>
+            </article>
+            <article class="metric">
+              <span data-icon="circle-dot"></span>
+              <strong id="metric-open">0</strong>
+              <p>Open trips</p>
+            </article>
+            <article class="metric">
+              <span data-icon="gauge"></span>
+              <strong id="metric-km">0.0 km</strong>
+              <p>Total distance</p>
+            </article>
+            <article class="metric">
+              <span data-icon="fuel"></span>
+              <strong id="metric-fuel">₹0</strong>
+              <p>Fuel cost</p>
+            </article>
+          </div>
+
+          <div class="admin-grid">
+            <article class="panel table-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Live Control</p>
+                  <h2>Trip Monitor</h2>
+                </div>
+                <button id="export-report" class="secondary-button" type="button">
+                  <span data-icon="download"></span>
+                  Export CSV
+                </button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Staff</th>
+                      <th>Vehicle</th>
+                      <th>Route</th>
+                      <th>Check-in</th>
+                      <th>Checkout</th>
+                      <th>KM</th>
+                      <th>Map</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-trip-rows"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="panel exceptions-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Exceptions</p>
+                  <h2>Needs Review</h2>
+                </div>
+              </div>
+              <div id="exception-list" class="exception-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="masters-view" class="view">
+          <div class="masters-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Vehicle Master</p>
+                  <h2>Add Vehicle</h2>
+                </div>
+              </div>
+              <form id="vehicle-form" class="field-form">
+                <label>
+                  Vehicle number
+                  <input name="vehicleNo" type="text" placeholder="DL 01 AB 1234" required />
+                </label>
+                <label>
+                  Opening KM
+                  <input name="openingKm" type="number" min="0" step="0.1" required />
+                </label>
+                <button class="primary-button" type="submit">
+                  <span data-icon="plus"></span>
+                  Add Vehicle
+                </button>
+              </form>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Staff Master</p>
+                  <h2>Add Staff</h2>
+                </div>
+              </div>
+              <form id="staff-form" class="field-form">
+                <label>
+                  Full name
+                  <input name="fullName" type="text" placeholder="Staff name" required />
+                </label>
+                <label>
+                  Work phone
+                  <input name="phone" type="tel" placeholder="+91 98765 43210" required />
+                </label>
+                <button class="primary-button" type="submit">
+                  <span data-icon="user-plus"></span>
+                  Add Staff
+                </button>
+              </form>
+            </article>
+
+            <article class="panel list-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Current Setup</p>
+                  <h2>Vehicles & Staff</h2>
+                </div>
+              </div>
+              <div id="master-list" class="master-list"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

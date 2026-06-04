@@ -1,0 +1,2 @@
+-- Optional demo data can be inserted after creating an auth user and organization.
+-- Keep this file lightweight until the first real business workflow is finalized.
