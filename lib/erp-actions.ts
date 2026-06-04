@@ -2414,6 +2414,101 @@ export async function addTaskDelegation(formData: FormData) {
   revalidatePath("/dashboard", "layout");
 }
 
+function normalizeDelegationCsvRow(headers: string[], rawRow: string[]) {
+  const row = headers.reduce<Record<string, string>>((data, header, index) => {
+    data[normalizeHeader(header)] = rawRow[index] || "";
+    return data;
+  }, {});
+
+  return {
+    department_key: row.department_key || row.department || row.module || row.category,
+    delegation_code: row.delegation_code || row.code || row.task_code || row.sr_no,
+    title: row.title || row.task || row.delegation || row.activity || row.particulars,
+    description: row.description || row.details || row.scope || row.instructions,
+    assigned_to: row.assigned_to || row.doer || row.owner || row.responsible || row.assignee,
+    assigned_by: row.assigned_by || row.manager || row.delegated_by,
+    priority: row.priority || row.importance,
+    planned_date: row.planned_date || row.plan_date || row.start_date,
+    target_date: row.target_date || row.deadline || row.due_date,
+    revised_date: row.revised_date || row.extended_date,
+    completed_date: row.completed_date || row.done_date,
+    status: row.status || row.stage,
+    proof_url: row.proof_url || row.proof || row.link || row.evidence,
+    remarks: row.remarks || row.remark || row.notes || row.comment
+  };
+}
+
+export async function bulkImportTaskDelegations(formData: FormData) {
+  const defaultDepartment = normalizeChecklistDepartment(text(formData, "department_key"));
+  const organization = await ensureWorkspace(checklistPermissionModule(defaultDepartment), "edit");
+  const { supabase, user } = await requireUser();
+  const file = formData.get("delegation_csv");
+  const pasted = text(formData, "delegation_csv_text");
+  let csvText = pasted;
+
+  if (file instanceof File && file.size > 0) {
+    csvText = await file.text();
+  }
+
+  if (!csvText.trim()) {
+    throw new Error("CSV file ya pasted CSV data required hai.");
+  }
+
+  const parsedRows = parseCsv(csvText);
+  const [headers, ...rows] = parsedRows;
+  if (!headers?.length || !rows.length) {
+    throw new Error("CSV me header row aur delegation rows required hain.");
+  }
+
+  const payloads = rows
+    .map((rawRow) => normalizeDelegationCsvRow(headers, rawRow))
+    .filter((row) => row.title?.trim())
+    .map((row) => {
+      const departmentKey = row.department_key ? normalizeChecklistDepartment(row.department_key) : defaultDepartment;
+      return {
+        organization_id: organization.id,
+        department_key: departmentKey,
+        delegation_code: row.delegation_code?.trim() || null,
+        title: row.title.trim(),
+        description: row.description?.trim() || null,
+        assigned_to: row.assigned_to?.trim() || null,
+        assigned_by: row.assigned_by?.trim() || null,
+        priority: normalizeChecklistPriority(row.priority),
+        planned_date: parseImportDate(row.planned_date),
+        target_date: parseImportDate(row.target_date),
+        revised_date: parseImportDate(row.revised_date),
+        completed_date: parseImportDate(row.completed_date),
+        status: normalizeChecklistStatus(row.status),
+        proof_url: row.proof_url?.trim() || null,
+        remarks: row.remarks?.trim() || null,
+        created_by: user.id
+      };
+    });
+
+  if (!payloads.length) {
+    throw new Error("CSV me valid delegation rows nahi mile.");
+  }
+
+  const codedRows = payloads.filter((row) => row.delegation_code);
+  const uncodedRows = payloads.filter((row) => !row.delegation_code);
+
+  if (codedRows.length) {
+    const { error } = await supabase
+      .from("task_delegations")
+      .upsert(codedRows, { onConflict: "organization_id,delegation_code" });
+    if (error) throw new Error(error.message);
+  }
+
+  if (uncodedRows.length) {
+    const { error } = await supabase.from("task_delegations").insert(uncodedRows);
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard/delegation");
+  revalidatePath("/dashboard/mis");
+  revalidatePath("/dashboard", "layout");
+}
+
 export async function updateTaskDelegation(formData: FormData) {
   const departmentKey = normalizeChecklistDepartment(text(formData, "department_key"));
   const organization = await ensureWorkspace(checklistPermissionModule(departmentKey), "edit");
@@ -2442,6 +2537,78 @@ export async function updateTaskDelegation(formData: FormData) {
   revalidatePath("/dashboard/delegation");
   revalidatePath("/dashboard/mis");
   revalidatePath("/dashboard", "layout");
+}
+
+// --- Staff "My Tasks" dashboard --------------------------------------------
+// These run for any logged-in organization member (even plain staff with no
+// module permissions). They only touch the status/progress fields of a task
+// that is already assigned to a person, so RLS member-update policies apply.
+async function requireMembership() {
+  const { supabase, user } = await requireUser();
+  const { data } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (!data?.organization_id) {
+    redirect("/dashboard/setup");
+  }
+
+  return { supabase, user, organizationId: data.organization_id as string };
+}
+
+export async function completeMyDelegation(formData: FormData) {
+  const { supabase, organizationId } = await requireMembership();
+  const delegationId = text(formData, "delegation_id");
+
+  if (!delegationId) return;
+
+  const status = normalizeChecklistStatus(text(formData, "status") || "done");
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { error } = await supabase
+    .from("task_delegations")
+    .update({
+      status,
+      completed_date: status === "done" ? today : null,
+      proof_url: text(formData, "proof_url") || null,
+      remarks: text(formData, "remarks") || null
+    })
+    .eq("organization_id", organizationId)
+    .eq("id", delegationId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/delegation");
+  revalidatePath("/dashboard/mis");
+}
+
+export async function completeMyChecklist(formData: FormData) {
+  const { supabase, organizationId } = await requireMembership();
+  const checklistId = text(formData, "checklist_id");
+
+  if (!checklistId) return;
+
+  const status = normalizeChecklistStatus(text(formData, "status") || "done");
+
+  const { error } = await supabase
+    .from("department_checklists")
+    .update({
+      status,
+      proof_url: text(formData, "proof_url") || null,
+      remarks: text(formData, "remarks") || null
+    })
+    .eq("organization_id", organizationId)
+    .eq("id", checklistId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/checklists");
+  revalidatePath("/dashboard/mis");
 }
 
 export async function addSalesOrder(formData: FormData) {
@@ -2802,5 +2969,176 @@ export async function createTeamMemberLogin(formData: FormData) {
     await admin.from("employee_directory").upsert(employeePayload, { onConflict: "organization_id,employee_code" });
   }
 
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/users");
+}
+
+function normalizeTeamLoginCsvRow(headers: string[], rawRow: string[]) {
+  const row = headers.reduce<Record<string, string>>((data, header, index) => {
+    data[normalizeHeader(header)] = rawRow[index] || "";
+    return data;
+  }, {});
+
+  return {
+    full_name: row.full_name || row.name || row.doer || row.employee_name,
+    email: row.email || row.login_email || row.work_email,
+    password: row.password || row.temp_password || row.temporary_password,
+    role: row.role || row.access_role,
+    permissions: row
+  };
+}
+
+export async function bulkImportTeamLogins(formData: FormData) {
+  const organization = await ensureCanManageTeam();
+  const file = formData.get("user_csv");
+  const pasted = text(formData, "user_csv_text");
+  let csvText = pasted;
+
+  if (file instanceof File && file.size > 0) {
+    csvText = await file.text();
+  }
+
+  if (!csvText.trim()) {
+    throw new Error("CSV file ya pasted CSV data required hai.");
+  }
+
+  const parsedRows = parseCsv(csvText);
+  const [headers, ...rows] = parsedRows;
+
+  if (!headers?.length || !rows.length) {
+    throw new Error("CSV me header row aur user rows required hain.");
+  }
+
+  const admin = createAdminClient() as any;
+  const { data: existingUsers, error: listError } = await admin.auth.admin.listUsers();
+  if (listError) {
+    throw new Error(listError.message);
+  }
+  const userIdByEmail = new Map<string, string>(
+    (existingUsers?.users || []).map((entry: any) => [String(entry.email || "").toLowerCase(), entry.id])
+  );
+
+  let created = 0;
+  let updated = 0;
+  const skipped: string[] = [];
+
+  for (const rawRow of rows) {
+    const parsed = normalizeTeamLoginCsvRow(headers, rawRow);
+    const email = (parsed.email || "").trim().toLowerCase();
+    const fullName = (parsed.full_name || "").trim() || (email ? email.split("@")[0] : "");
+    const password = (parsed.password || "").trim();
+    const requestedRole = (parsed.role || "").trim().toLowerCase() as AssignableMemberRole;
+    const role: AssignableMemberRole = memberRoles.includes(requestedRole) ? requestedRole : "staff";
+
+    if (!email) continue;
+    if (!email.endsWith("@richagroup.co")) {
+      skipped.push(`${email} (richagroup.co email required)`);
+      continue;
+    }
+    if (password.length < 8) {
+      skipped.push(`${email} (password 8+ characters)`);
+      continue;
+    }
+
+    let userId = userIdByEmail.get(email) || null;
+
+    if (userId) {
+      const { error } = await admin.auth.admin.updateUserById(userId, {
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName }
+      });
+      if (error) {
+        skipped.push(`${email} (${error.message})`);
+        continue;
+      }
+      updated += 1;
+    } else {
+      const { data, error } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName }
+      });
+      if (error || !data.user?.id) {
+        skipped.push(`${email} (${error?.message || "create failed"})`);
+        continue;
+      }
+      const createdId = String(data.user.id);
+      userId = createdId;
+      userIdByEmail.set(email, createdId);
+      created += 1;
+    }
+
+    await admin.from("profiles").upsert({ id: userId, full_name: fullName });
+    await admin.from("organization_members").upsert({
+      organization_id: organization.id,
+      user_id: userId,
+      role
+    });
+
+    await admin
+      .from("organization_member_permissions")
+      .delete()
+      .eq("organization_id", organization.id)
+      .eq("user_id", userId);
+
+    const permissions = permissionModules
+      .map((module) => {
+        const cell = String(parsed.permissions[module.key] || "").trim().toLowerCase();
+        const canEdit = ["edit", "write", "work", "yes", "y", "1", "true"].includes(cell);
+        const canView = canEdit || ["view", "read", "yes", "y", "1", "true"].includes(cell);
+        return {
+          organization_id: organization.id,
+          user_id: userId,
+          module_key: module.key,
+          can_view: canView,
+          can_edit: canEdit
+        };
+      })
+      .filter((permission) => permission.can_view || permission.can_edit);
+
+    if (permissions.length) {
+      await admin.from("organization_member_permissions").upsert(permissions);
+    }
+
+    const employeeCode = `EMP-${email
+      .split("@")[0]
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")}`;
+    const employeePayload = {
+      organization_id: organization.id,
+      auth_user_id: userId,
+      employee_code: employeeCode,
+      full_name: fullName,
+      login_email: email,
+      role,
+      department: "General",
+      status: "active",
+      app_access_status: "active"
+    };
+    const { data: existingEmployee } = await admin
+      .from("employee_directory")
+      .select("id")
+      .eq("organization_id", organization.id)
+      .eq("login_email", email)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingEmployee?.id) {
+      await admin.from("employee_directory").update(employeePayload).eq("id", existingEmployee.id);
+    } else {
+      await admin.from("employee_directory").upsert(employeePayload, { onConflict: "organization_id,employee_code" });
+    }
+  }
+
+  if (created + updated === 0) {
+    throw new Error(
+      `Koi valid user nahi bana. ${skipped.length ? `Skipped: ${skipped.join("; ")}` : "CSV me email/password sahi se daalein."}`
+    );
+  }
+
+  revalidatePath("/dashboard/users");
   revalidatePath("/dashboard/settings");
 }

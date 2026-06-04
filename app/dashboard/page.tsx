@@ -11,11 +11,28 @@ import {
   Truck
 } from "lucide-react";
 import Image from "next/image";
+import { MyTasksCenter } from "@/components/my-tasks-center";
 import { businessMix, companyHighlights, pipelineStages, qualityChecks } from "@/lib/erp-data";
-import { getDashboardData } from "@/lib/erp-queries";
+import { getAppContext, getDashboardData, getMyTaskData } from "@/lib/erp-queries";
 import { currencyFormatter } from "@/lib/utils";
 
 export default async function DashboardPage() {
+  const context = await getAppContext();
+
+  // Non-admin team members only get their personal task workspace (delegation
+  // + checklist). The full ERP command center stays admin-only for now.
+  if (!context.isAdmin) {
+    const myTasks = await getMyTaskData();
+    return (
+      <MyTasksCenter
+        name={myTasks.identity.fullName || ""}
+        profile={myTasks.profile}
+        delegations={myTasks.delegations}
+        checklists={myTasks.checklists}
+      />
+    );
+  }
+
   const data = await getDashboardData();
   const kpiIcons = [IndianRupee, FileText, Boxes, ShieldCheck];
   const kpis = [

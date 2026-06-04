@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarDays, Menu, Search, ShieldCheck, Truck, Users } from "lucide-react";
+import { CalendarDays, LogOut, Menu, Search, ShieldCheck, Truck, Users } from "lucide-react";
+import { signOut } from "@/app/actions";
 
 export function Topbar() {
   const todayLabel = new Intl.DateTimeFormat("en-GB", {
@@ -60,6 +61,16 @@ export function Topbar() {
         />
         Ram Setu ERP
       </button>
+      <form action={signOut} className="ml-auto md:ml-0">
+        <button
+          type="submit"
+          className="inline-flex h-10 items-center gap-2 rounded-md border bg-white px-3 text-sm font-semibold text-rose-600 shadow-sm hover:bg-rose-50"
+          title="Sign out"
+        >
+          <LogOut className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Sign out</span>
+        </button>
+      </form>
     </header>
   );
 }

@@ -17,6 +17,8 @@ import {
   bulkImportInventory,
   bulkImportProducts,
   bulkImportPurchaseOrders,
+  bulkImportTaskDelegations,
+  bulkImportTeamLogins,
   createOrderPunch,
   createPurchaseOrderPunch,
   createTeamMemberLogin,
@@ -908,6 +910,75 @@ export function TeamLoginForm() {
   );
 }
 
+export function TeamLoginBulkImportForm() {
+  const sampleHeaders = "full_name,email,password,role";
+  const sampleRow = "Aman Pareek,aman@richagroup.co,Welcome@123,staff";
+  const permissionHeaders = `${sampleHeaders},${permissionModules.map((module) => module.key).join(",")}`;
+  const permissionRow = `Riya Sharma,riya@richagroup.co,Welcome@123,manager,${permissionModules
+    .map((module) => (module.key === "sales" ? "edit" : ""))
+    .join(",")}`;
+  const templateHref = `data:text/csv;charset=utf-8,${encodeURIComponent(
+    `${permissionHeaders}\n${permissionRow}\n`
+  )}`;
+
+  return (
+    <section id="bulk" className="rounded-md border bg-white/95 p-4 shadow-sm">
+      <div className="mb-4 flex flex-col gap-3 border-b pb-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Bulk Add Users</p>
+          <h2 className="text-xl font-semibold">Upload user CSV</h2>
+          <p className="text-sm text-muted-foreground">
+            Ek saath multiple logins banayein. Email match hua to password reset hoga. Email richagroup.co aur password 8+ characters hona chahiye.
+          </p>
+        </div>
+        <a
+          href={templateHref}
+          download="ram-setu-users-template.csv"
+          className="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-semibold text-primary hover:bg-muted"
+        >
+          Download CSV template
+        </a>
+      </div>
+      <form action={bulkImportTeamLogins} className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="space-y-3">
+          <label className="block text-sm">
+            <span className="font-medium">CSV file</span>
+            <input
+              name="user_csv"
+              type="file"
+              accept=".csv,text/csv"
+              className="mt-1 block w-full rounded-md border bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">Paste CSV data</span>
+            <textarea
+              name="user_csv_text"
+              className="mt-1 min-h-32 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
+              placeholder={`${sampleHeaders}\n${sampleRow}`}
+            />
+          </label>
+          <Submit>Bulk create logins</Submit>
+        </div>
+        <div className="rounded-md border bg-slate-50/80 p-3">
+          <p className="text-sm font-semibold">Required columns</p>
+          <div className="mt-2 overflow-x-auto rounded-md border bg-white p-3">
+            <pre className="text-xs leading-5 text-slate-700">{sampleHeaders}</pre>
+          </div>
+          <p className="mt-3 text-sm font-semibold">Optional module access columns</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Role ke baad har module ke liye column add kar sakte hain (value: <code>view</code> ya <code>edit</code>).
+            Staff bina module ke sirf apne Delegation/Checklist tasks dekhega.
+          </p>
+          <div className="mt-2 overflow-x-auto rounded-md border bg-white p-3">
+            <pre className="text-xs leading-5 text-slate-700">{permissionModules.map((module) => module.key).join(", ")}</pre>
+          </div>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 export function EmployeeRecordForm() {
   return (
     <form action={addEmployeeRecord} className="grid gap-3 rounded-md border bg-white/95 p-4 shadow-sm md:grid-cols-4">
@@ -1304,6 +1375,67 @@ export function TaskDelegationForm({ departmentKey = "dashboard" }: { department
         <Submit>Assign task</Submit>
       </div>
     </form>
+  );
+}
+
+export function TaskDelegationBulkImportForm({ departmentKey = "dashboard" }: { departmentKey?: string }) {
+  const sampleHeaders =
+    "department,delegation_code,title,description,assigned_to,assigned_by,priority,planned_date,target_date,status,proof_url,remarks";
+  const sampleRow =
+    "sales,DEL-001,Prepare April GST working,Collect invoices and file working,Aman Pareek,Sales Manager,high,01/05/2026,07/05/2026,pending,https://drive.google.com/,Share before review";
+  const templateHref = `data:text/csv;charset=utf-8,${encodeURIComponent(`${sampleHeaders}\n${sampleRow}\n`)}`;
+
+  return (
+    <section className="rounded-md border bg-white/95 p-4 shadow-sm">
+      <div className="mb-4 flex flex-col gap-3 border-b pb-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Bulk Upload</p>
+          <h2 className="text-xl font-semibold">Upload delegation CSV</h2>
+          <p className="text-sm text-muted-foreground">
+            Same delegation code par row update hogi. Code blank hua to new task create hoga. Assigned_to me employee ka exact naam/email daalein.
+          </p>
+        </div>
+        <a
+          href={templateHref}
+          download="ram-setu-delegation-template.csv"
+          className="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-semibold text-primary hover:bg-muted"
+        >
+          Download CSV template
+        </a>
+      </div>
+      <form action={bulkImportTaskDelegations} className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <input type="hidden" name="department_key" value={departmentKey} />
+        <div className="space-y-3">
+          <label className="block text-sm">
+            <span className="font-medium">CSV file</span>
+            <input
+              name="delegation_csv"
+              type="file"
+              accept=".csv,text/csv"
+              className="mt-1 block w-full rounded-md border bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium">Paste CSV data</span>
+            <textarea
+              name="delegation_csv_text"
+              className="mt-1 min-h-32 w-full rounded-md border bg-white px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
+              placeholder={`${sampleHeaders}\n${sampleRow}`}
+            />
+          </label>
+          <Submit>Bulk upload delegations</Submit>
+        </div>
+        <div className="rounded-md border bg-slate-50/80 p-3">
+          <p className="text-sm font-semibold">Supported CSV columns</p>
+          <div className="mt-2 overflow-x-auto rounded-md border bg-white p-3">
+            <pre className="text-xs leading-5 text-slate-700">{sampleHeaders}</pre>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            Department column me dashboard, sales, purchases, inventory, accounts, hr use kar sakte hain.
+          </p>
+        </div>
+      </form>
+    </section>
   );
 }
 

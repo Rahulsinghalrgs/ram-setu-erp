@@ -332,6 +332,112 @@ export async function getDelegationData(departmentKey?: string) {
   };
 }
 
+export type MyTaskIdentity = {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  employeeCode: string | null;
+};
+
+function normalizeIdentityValue(value: unknown) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+// A delegation/checklist is "mine" when its free-text owner field matches any
+// of my identities (full name, login email or employee code), case-insensitive.
+function isAssignedToMe(assignee: unknown, identities: Set<string>) {
+  const normalized = normalizeIdentityValue(assignee);
+  if (!normalized) return false;
+  return identities.has(normalized);
+}
+
+export async function getMyTaskData() {
+  const context = await getAppContext();
+  const { organization } = context;
+  const supabase = await createClient();
+  const db = supabase as any;
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth");
+  }
+
+  const [{ data: profileRow }, { data: employee }, { data: delegationRows }, { data: checklistRows }] =
+    await Promise.all([
+      db.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+      db
+        .from("employee_directory")
+        .select(
+          "full_name, login_email, employee_code, department, designation, phone, whatsapp, role, reporting_manager, joining_date, employment_type, status"
+        )
+        .eq("organization_id", organization.id)
+        .eq("auth_user_id", user.id)
+        .maybeSingle(),
+      db
+        .from("task_delegations")
+        .select("*")
+        .eq("organization_id", organization.id)
+        .order("target_date", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false }),
+      db
+        .from("department_checklists")
+        .select("*")
+        .eq("organization_id", organization.id)
+        .order("due_date", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false })
+    ]);
+
+  const fullName = (employee?.full_name || profileRow?.full_name || user.user_metadata?.full_name || null) as
+    | string
+    | null;
+  const identity: MyTaskIdentity = {
+    userId: user.id,
+    email: user.email || employee?.login_email || null,
+    fullName,
+    employeeCode: employee?.employee_code || null
+  };
+
+  const identities = new Set(
+    [user.email, employee?.login_email, fullName, profileRow?.full_name, user.user_metadata?.full_name, employee?.employee_code]
+      .map(normalizeIdentityValue)
+      .filter(Boolean)
+  );
+
+  const myDelegations = ((delegationRows || []) as AnyRecord[]).filter((row) =>
+    isAssignedToMe(row.assigned_to, identities)
+  );
+  const myChecklists = ((checklistRows || []) as AnyRecord[]).filter((row) =>
+    isAssignedToMe(row.owner_name, identities)
+  );
+
+  const profile = {
+    fullName,
+    email: identity.email,
+    employeeCode: employee?.employee_code || null,
+    role: (employee?.role || context.role || null) as string | null,
+    department: employee?.department || null,
+    designation: employee?.designation || null,
+    phone: employee?.phone || null,
+    whatsapp: employee?.whatsapp || null,
+    reportingManager: employee?.reporting_manager || null,
+    joiningDate: employee?.joining_date || null,
+    employmentType: employee?.employment_type || null,
+    status: employee?.status || null,
+    organizationName: organization.name
+  };
+
+  return {
+    organization,
+    access: context,
+    identity,
+    profile,
+    delegations: myDelegations,
+    checklists: myChecklists
+  };
+}
+
 export async function getMisReportData() {
   const context = await getAppContext();
   const { organization } = context;

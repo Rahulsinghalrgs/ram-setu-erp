@@ -1,5 +1,6 @@
 import { CalendarClock, Download, ListTodo, ShieldAlert, UserCheck } from "lucide-react";
 import {
+  TaskDelegationBulkImportForm,
   TaskDelegationForm,
   TaskDelegationUpdateForm,
   checklistDepartmentOptions
@@ -118,6 +119,8 @@ export function DelegationCenter({ delegations }: { delegations: DelegationRow[]
       </section>
 
       <TaskDelegationForm departmentKey="dashboard" />
+
+      <TaskDelegationBulkImportForm departmentKey="dashboard" />
 
       <section className="overflow-hidden rounded-md border bg-white shadow-sm">
         <div className="border-b p-4">

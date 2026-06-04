@@ -363,6 +363,33 @@ export const sidebarGroups: SidebarGroup[] = [
         examples: ["Social Media posting checklist"]
       }
     ]
+  },
+  {
+    href: "/dashboard/users",
+    label: "Users & Team",
+    subtitle: "Create logins, roles, bulk add",
+    icon: Users,
+    keys: ["settings"],
+    systems: [
+      {
+        label: "Add User Login",
+        href: "/dashboard/users",
+        count: 1,
+        examples: ["New login", "Role + permissions", "Reset password"]
+      },
+      {
+        label: "Bulk Add Users",
+        href: "/dashboard/users#bulk",
+        count: 1,
+        examples: ["CSV upload", "Multiple logins"]
+      },
+      {
+        label: "Team Members",
+        href: "/dashboard/users#members",
+        count: 1,
+        examples: ["Active doers", "Access list"]
+      }
+    ]
   }
 ];
 
