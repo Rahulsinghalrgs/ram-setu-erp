@@ -66,7 +66,15 @@ function priorityTone(priority: string) {
   return "bg-blue-50 text-blue-700";
 }
 
-export function DelegationCenter({ delegations }: { delegations: DelegationRow[] }) {
+type EmployeeOption = { name: string; email: string | null; code: string | null };
+
+export function DelegationCenter({
+  delegations,
+  employees = []
+}: {
+  delegations: DelegationRow[];
+  employees?: EmployeeOption[];
+}) {
   const today = new Date().toISOString().slice(0, 10);
   const pending = delegations.filter((row) => row.status !== "done" && row.status !== "not_required");
   const overdue = pending.filter((row) => {
@@ -118,7 +126,7 @@ export function DelegationCenter({ delegations }: { delegations: DelegationRow[]
         </div>
       </section>
 
-      <TaskDelegationForm departmentKey="dashboard" />
+      <TaskDelegationForm departmentKey="dashboard" employees={employees} />
 
       <TaskDelegationBulkImportForm departmentKey="dashboard" />
 
@@ -173,7 +181,7 @@ export function DelegationCenter({ delegations }: { delegations: DelegationRow[]
                           Open proof
                         </a>
                       ) : null}
-                      <TaskDelegationUpdateForm delegation={row} />
+                      <TaskDelegationUpdateForm delegation={row} employees={employees} />
                     </td>
                   </tr>
                 ))

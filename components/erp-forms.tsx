@@ -27,9 +27,44 @@ import {
   updateOrderDeliveryFlow
 } from "@/lib/erp-actions";
 import { permissionModules } from "@/lib/access-control";
+import type { EmployeeOption } from "@/lib/erp-queries";
 import { OrderPunchClient } from "@/components/order-punch-client";
 import { PurchasePunchClient } from "@/components/purchase-punch-client";
 import { productMasterLabel } from "@/lib/product-master";
+
+function EmployeeSelect({
+  name,
+  label,
+  employees,
+  defaultValue = "",
+  required = false
+}: {
+  name: string;
+  label: string;
+  employees: EmployeeOption[];
+  defaultValue?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block text-sm">
+      <span className="font-medium">{label}</span>
+      <select
+        name={name}
+        defaultValue={defaultValue}
+        required={required}
+        className="mt-1 h-10 w-full rounded-md border bg-white px-3"
+      >
+        <option value="">Select employee</option>
+        {employees.map((employee) => (
+          <option key={employee.email || employee.code || employee.name} value={employee.name}>
+            {employee.name}
+            {employee.code ? ` (${employee.code})` : ""}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 export type Option = {
   id: string;
@@ -900,15 +935,16 @@ export function TeamLoginForm() {
 }
 
 export function TeamLoginBulkImportForm() {
-  const sampleHeaders = "full_name,email,password,role";
-  const sampleRow = "Aman Pareek,aman@richagroup.co,Welcome@123,staff";
-  const permissionHeaders = `${sampleHeaders},${permissionModules.map((module) => module.key).join(",")}`;
-  const permissionRow = `Riya Sharma,riya@richagroup.co,Welcome@123,manager,${permissionModules
-    .map((module) => (module.key === "sales" ? "edit" : ""))
-    .join(",")}`;
+  const sampleHeaders = "employee_code,full_name,phone,email,department,designation,password,role";
+  const sampleRows = [
+    "RG0028,Aman Pareek,9876543210,aman@richagroup.co,Sales,Sales Executive,Welcome@123,staff",
+    "RG0029,Riya Sharma,9876500011,riya@richagroup.co,Accounts,Accountant,Welcome@123,staff",
+    "RG0030,Vikas Mehra,9811122233,vikas@richagroup.co,Operations,Ops Manager,Welcome@123,manager"
+  ];
   const templateHref = `data:text/csv;charset=utf-8,${encodeURIComponent(
-    `${permissionHeaders}\n${permissionRow}\n`
+    `${sampleHeaders}\n${sampleRows.join("\n")}\n`
   )}`;
+  const sampleRow = sampleRows[0];
 
   return (
     <section id="bulk" className="rounded-md border bg-white/95 p-4 shadow-sm">
@@ -1116,7 +1152,13 @@ export const checklistDepartmentOptions = [
   { id: "hr", name: "HR, Admin & Management" }
 ];
 
-export function DepartmentChecklistForm({ departmentKey = "dashboard" }: { departmentKey?: string }) {
+export function DepartmentChecklistForm({
+  departmentKey = "dashboard",
+  employees = []
+}: {
+  departmentKey?: string;
+  employees?: EmployeeOption[];
+}) {
   return (
     <form action={addDepartmentChecklist} className="rounded-md border bg-white/95 p-4 shadow-sm">
       <div className="mb-4 border-b pb-3">
@@ -1137,9 +1179,8 @@ export function DepartmentChecklistForm({ departmentKey = "dashboard" }: { depar
             ))}
           </select>
         </label>
-        <Field name="checklist_code" label="Checklist code" placeholder="SAL-DAY-001" />
         <Field name="title" label="Task title" placeholder="Daily order confirmation check" required />
-        <Field name="owner_name" label="Owner / doer" placeholder="Sales team / Accounts team" />
+        <EmployeeSelect name="owner_name" label="Assign to (employee)" employees={employees} required />
         <label className="block text-sm">
           <span className="font-medium">Frequency</span>
           <select name="frequency" defaultValue="daily" className="mt-1 h-10 w-full rounded-md border bg-white px-3">
@@ -1198,9 +1239,13 @@ export function DepartmentChecklistForm({ departmentKey = "dashboard" }: { depar
 export function DepartmentChecklistBulkImportForm({ departmentKey = "dashboard" }: { departmentKey?: string }) {
   const sampleHeaders =
     "department,checklist_code,title,description,owner_name,frequency,priority,due_date,status,proof_url,remarks";
-  const sampleRow =
-    "sales,SAL-DAY-001,Daily order confirmation,Confirm pending orders and proof links,Sales executive,daily,high,05/05/2026,pending,https://drive.google.com/,Review before dispatch";
-  const templateHref = `data:text/csv;charset=utf-8,${encodeURIComponent(`${sampleHeaders}\n${sampleRow}\n`)}`;
+  const sampleRows = [
+    "sales,SAL-DAY-001,Daily order confirmation,Confirm pending orders and proof links,Aman Pareek,daily,high,05/05/2026,pending,https://drive.google.com/,Review before dispatch",
+    "accounts,ACC-DAY-001,Daily payment entry,Post all receipts in Tally,Riya Sharma,daily,medium,05/05/2026,pending,,Reconcile EOD",
+    "inventory,INV-WK-001,Weekly stock report,Share closing stock sheet,Vikas Mehra,weekly,medium,07/05/2026,pending,,Send to management"
+  ];
+  const templateHref = `data:text/csv;charset=utf-8,${encodeURIComponent(`${sampleHeaders}\n${sampleRows.join("\n")}\n`)}`;
+  const sampleRow = sampleRows[0];
 
   return (
     <section className="rounded-md border bg-white/95 p-4 shadow-sm">
@@ -1296,14 +1341,21 @@ export function DepartmentChecklistUpdateForm({ checklist }: { checklist: Record
   );
 }
 
-export function TaskDelegationForm({ departmentKey = "dashboard" }: { departmentKey?: string }) {
+export function TaskDelegationForm({
+  departmentKey = "dashboard",
+  employees = []
+}: {
+  departmentKey?: string;
+  employees?: EmployeeOption[];
+}) {
   return (
     <form action={addTaskDelegation} className="rounded-md border bg-white/95 p-4 shadow-sm">
       <div className="mb-4 border-b pb-3">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Task Delegation</p>
         <h2 className="text-xl font-semibold">Assign a task</h2>
         <p className="text-sm text-muted-foreground">
-          Kisi person ko one-time task delegate karein - doer, planned date, deadline aur proof ke saath.
+          Kisi employee ko one-time task delegate karein - doer, planned date, deadline aur proof ke saath. Assigned by
+          hamesha admin rahega.
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-3">
@@ -1317,10 +1369,8 @@ export function TaskDelegationForm({ departmentKey = "dashboard" }: { department
             ))}
           </select>
         </label>
-        <Field name="delegation_code" label="Task code" placeholder="DEL-001" />
         <Field name="title" label="Task title" placeholder="Prepare GST working for April" required />
-        <Field name="assigned_to" label="Assigned to (doer)" placeholder="Employee name" />
-        <Field name="assigned_by" label="Assigned by" placeholder="Manager name" />
+        <EmployeeSelect name="assigned_to" label="Assign to (employee)" employees={employees} required />
         <label className="block text-sm">
           <span className="font-medium">Priority</span>
           <select name="priority" defaultValue="medium" className="mt-1 h-10 w-full rounded-md border bg-white px-3">
@@ -1370,9 +1420,13 @@ export function TaskDelegationForm({ departmentKey = "dashboard" }: { department
 export function TaskDelegationBulkImportForm({ departmentKey = "dashboard" }: { departmentKey?: string }) {
   const sampleHeaders =
     "department,delegation_code,title,description,assigned_to,assigned_by,priority,planned_date,target_date,status,proof_url,remarks";
-  const sampleRow =
-    "sales,DEL-001,Prepare April GST working,Collect invoices and file working,Aman Pareek,Sales Manager,high,01/05/2026,07/05/2026,pending,https://drive.google.com/,Share before review";
-  const templateHref = `data:text/csv;charset=utf-8,${encodeURIComponent(`${sampleHeaders}\n${sampleRow}\n`)}`;
+  const sampleRows = [
+    "sales,DEL-001,Prepare April GST working,Collect invoices and file working,Aman Pareek,Sales Manager,high,01/05/2026,07/05/2026,pending,https://drive.google.com/,Share before review",
+    "accounts,DEL-002,Vendor payment reconciliation,Match ledger with bank,Riya Sharma,Accounts Head,medium,02/05/2026,06/05/2026,in_progress,,Pending 2 entries",
+    "inventory,DEL-003,Monthly stock audit,Physical count vs system,Vikas Mehra,Ops Manager,critical,03/05/2026,10/05/2026,pending,,Warehouse A first"
+  ];
+  const templateHref = `data:text/csv;charset=utf-8,${encodeURIComponent(`${sampleHeaders}\n${sampleRows.join("\n")}\n`)}`;
+  const sampleRow = sampleRows[0];
 
   return (
     <section className="rounded-md border bg-white/95 p-4 shadow-sm">
@@ -1428,7 +1482,13 @@ export function TaskDelegationBulkImportForm({ departmentKey = "dashboard" }: { 
   );
 }
 
-export function TaskDelegationUpdateForm({ delegation }: { delegation: Record<string, any> }) {
+export function TaskDelegationUpdateForm({
+  delegation,
+  employees = []
+}: {
+  delegation: Record<string, any>;
+  employees?: EmployeeOption[];
+}) {
   return (
     <form action={updateTaskDelegation} className="grid min-w-[520px] gap-2 rounded-md border bg-slate-50/80 p-3">
       <input type="hidden" name="delegation_id" value={delegation.id} />
@@ -1447,7 +1507,17 @@ export function TaskDelegationUpdateForm({ delegation }: { delegation: Record<st
           <option value="critical">Critical</option>
           <option value="low">Low</option>
         </select>
-        <input name="assigned_to" defaultValue={delegation.assigned_to || ""} placeholder="Doer" className="h-9 rounded-md border bg-white px-2 text-xs" />
+        <select name="assigned_to" defaultValue={delegation.assigned_to || ""} className="h-9 rounded-md border bg-white px-2 text-xs">
+          <option value="">Assign to…</option>
+          {delegation.assigned_to && !employees.some((employee) => employee.name === delegation.assigned_to) ? (
+            <option value={delegation.assigned_to}>{delegation.assigned_to}</option>
+          ) : null}
+          {employees.map((employee) => (
+            <option key={employee.email || employee.code || employee.name} value={employee.name}>
+              {employee.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
         <input name="target_date" type="date" defaultValue={delegation.target_date || ""} className="h-9 rounded-md border bg-white px-2 text-xs" />

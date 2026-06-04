@@ -102,7 +102,7 @@ export function SidebarClient({ allowedGroupHrefs }: SidebarClientProps) {
   return (
     <>
       <input id="ram-setu-sidebar-toggle" type="checkbox" className="sidebar-toggle sr-only" defaultChecked />
-      <aside className="sidebar-shell hidden max-h-screen w-[276px] shrink-0 overflow-y-auto border-r border-slate-950/60 shadow-2xl shadow-slate-950/24 lg:block">
+      <aside className="sidebar-shell hidden h-screen w-[276px] shrink-0 overflow-y-auto border-r border-slate-950/60 shadow-2xl shadow-slate-950/24 lg:sticky lg:top-0 lg:block lg:self-start">
         <div className="sidebar-top px-3 pb-3 pt-3">
           <label
             htmlFor="ram-setu-sidebar-toggle"

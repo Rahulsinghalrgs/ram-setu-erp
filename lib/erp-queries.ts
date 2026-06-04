@@ -288,6 +288,24 @@ export async function getModuleData() {
   };
 }
 
+export type EmployeeOption = { name: string; email: string | null; code: string | null };
+
+async function getEmployeeOptions(db: any, organizationId: string): Promise<EmployeeOption[]> {
+  const { data } = await db
+    .from("employee_directory")
+    .select("full_name, login_email, employee_code")
+    .eq("organization_id", organizationId)
+    .order("full_name", { ascending: true });
+
+  return ((data || []) as AnyRecord[])
+    .filter((row) => row.full_name)
+    .map((row) => ({
+      name: String(row.full_name),
+      email: row.login_email || null,
+      code: row.employee_code || null
+    }));
+}
+
 export async function getChecklistData(departmentKey?: string) {
   const context = await getAppContext();
   const { organization } = context;
@@ -299,14 +317,16 @@ export async function getChecklistData(departmentKey?: string) {
     query = query.eq("department_key", departmentKey);
   }
 
-  const { data } = await query.order("due_date", { ascending: true, nullsFirst: false }).order("created_at", {
-    ascending: false
-  });
+  const [{ data }, employees] = await Promise.all([
+    query.order("due_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false }),
+    getEmployeeOptions(db, organization.id)
+  ]);
 
   return {
     organization,
     access: context,
-    checklists: (data || []) as AnyRecord[]
+    checklists: (data || []) as AnyRecord[],
+    employees
   };
 }
 
@@ -321,14 +341,16 @@ export async function getDelegationData(departmentKey?: string) {
     query = query.eq("department_key", departmentKey);
   }
 
-  const { data } = await query
-    .order("target_date", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
+  const [{ data }, employees] = await Promise.all([
+    query.order("target_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false }),
+    getEmployeeOptions(db, organization.id)
+  ]);
 
   return {
     organization,
     access: context,
-    delegations: (data || []) as AnyRecord[]
+    delegations: (data || []) as AnyRecord[],
+    employees
   };
 }
 

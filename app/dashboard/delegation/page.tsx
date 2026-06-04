@@ -10,5 +10,5 @@ export default async function DelegationPage() {
     redirect("/dashboard");
   }
 
-  return <DelegationCenter delegations={data.delegations} />;
+  return <DelegationCenter delegations={data.delegations} employees={data.employees} />;
 }

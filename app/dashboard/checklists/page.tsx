@@ -30,5 +30,5 @@ export default async function ChecklistsPage({ searchParams }: ChecklistsPagePro
     redirect("/dashboard");
   }
 
-  return <ChecklistCenter checklists={data.checklists} departmentKey={departmentKey} />;
+  return <ChecklistCenter checklists={data.checklists} departmentKey={departmentKey} employees={data.employees} />;
 }

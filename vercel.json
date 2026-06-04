@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/tasks/pending-reminders",
+      "schedule": "30 4 * * *"
+    }
+  ]
+}

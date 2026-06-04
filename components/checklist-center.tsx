@@ -63,12 +63,16 @@ function priorityTone(priority: string) {
   return "bg-blue-50 text-blue-700";
 }
 
+type EmployeeOption = { name: string; email: string | null; code: string | null };
+
 export function ChecklistCenter({
   checklists,
-  departmentKey
+  departmentKey,
+  employees = []
 }: {
   checklists: ChecklistRow[];
   departmentKey: string;
+  employees?: EmployeeOption[];
 }) {
   const departmentRows = checklists.filter((row) => row.department_key === departmentKey);
   const today = new Date().toISOString().slice(0, 10);
@@ -151,7 +155,7 @@ export function ChecklistCenter({
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <DepartmentChecklistForm departmentKey={departmentKey} />
+        <DepartmentChecklistForm departmentKey={departmentKey} employees={employees} />
         <DepartmentChecklistBulkImportForm departmentKey={departmentKey} />
       </div>
 

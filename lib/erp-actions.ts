@@ -6,6 +6,7 @@ import { parseOrderDeliveryCsv, orderDeliverySheetUrl } from "@/lib/order-to-del
 import { permissionModules, type PermissionModuleKey } from "@/lib/access-control";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { notifyTaskAssignment } from "@/lib/task-notifications";
 
 type Organization = {
   id: string;
@@ -2242,10 +2243,14 @@ export async function addDepartmentChecklist(formData: FormData) {
     throw new Error("Checklist task title required hai.");
   }
 
+  const checklistCode =
+    text(formData, "checklist_code") ||
+    (await nextTaskCode(supabase, "department_checklists", "checklist_code", organization.id));
+
   const { error } = await supabase.from("department_checklists").insert({
     organization_id: organization.id,
     department_key: departmentKey,
-    checklist_code: text(formData, "checklist_code") || null,
+    checklist_code: checklistCode,
     title,
     description: text(formData, "description") || null,
     owner_name: text(formData, "owner_name") || null,
@@ -2259,6 +2264,16 @@ export async function addDepartmentChecklist(formData: FormData) {
   });
 
   if (error) throw new Error(error.message);
+
+  await notifyTaskAssignment({
+    db: supabase,
+    organizationId: organization.id,
+    assignedTo: text(formData, "owner_name") || null,
+    title,
+    dueDate: dateValue(formData, "due_date"),
+    assignedBy: await currentAdminName(supabase, user),
+    kind: "checklist"
+  });
 
   revalidatePath("/dashboard/checklists");
   revalidatePath("/dashboard", "layout");
@@ -2380,6 +2395,26 @@ export async function updateDepartmentChecklist(formData: FormData) {
   revalidatePath("/dashboard", "layout");
 }
 
+// Display name of the current admin (used as "assigned by" on delegations).
+async function currentAdminName(supabase: any, user: any) {
+  const { data } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+  return data?.full_name || user.user_metadata?.full_name || user.email || "Admin";
+}
+
+// Next auto task code like TASK-0001, TASK-0002 ... per organization/table.
+async function nextTaskCode(supabase: any, table: string, column: string, organizationId: string) {
+  const { data } = await supabase.from(table).select(column).eq("organization_id", organizationId);
+  let max = 0;
+  for (const row of (data || []) as Array<Record<string, any>>) {
+    const value = String(row[column] || "");
+    const match = value.match(/^TASK-(\d+)$/i);
+    if (match) {
+      max = Math.max(max, Number(match[1]));
+    }
+  }
+  return `TASK-${String(max + 1).padStart(4, "0")}`;
+}
+
 export async function addTaskDelegation(formData: FormData) {
   const departmentKey = normalizeChecklistDepartment(text(formData, "department_key"));
   const organization = await ensureWorkspace(checklistPermissionModule(departmentKey), "edit");
@@ -2390,13 +2425,18 @@ export async function addTaskDelegation(formData: FormData) {
     throw new Error("Delegation task title required hai.");
   }
 
+  const delegationCode =
+    text(formData, "delegation_code") ||
+    (await nextTaskCode(supabase, "task_delegations", "delegation_code", organization.id));
+  const assignedBy = await currentAdminName(supabase, user);
+
   const { error } = await supabase.from("task_delegations").insert({
     organization_id: organization.id,
     department_key: departmentKey,
-    delegation_code: text(formData, "delegation_code") || null,
+    delegation_code: delegationCode,
     title,
     description: text(formData, "description") || null,
-    assigned_by: text(formData, "assigned_by") || null,
+    assigned_by: assignedBy,
     assigned_to: text(formData, "assigned_to") || null,
     priority: normalizeChecklistPriority(text(formData, "priority")),
     planned_date: dateValue(formData, "planned_date"),
@@ -2408,6 +2448,16 @@ export async function addTaskDelegation(formData: FormData) {
   });
 
   if (error) throw new Error(error.message);
+
+  await notifyTaskAssignment({
+    db: supabase,
+    organizationId: organization.id,
+    assignedTo: text(formData, "assigned_to") || null,
+    title,
+    dueDate: dateValue(formData, "target_date"),
+    assignedBy,
+    kind: "delegation"
+  });
 
   revalidatePath("/dashboard/delegation");
   revalidatePath("/dashboard/mis");
@@ -2988,8 +3038,12 @@ function normalizeTeamLoginCsvRow(headers: string[], rawRow: string[]) {
   }, {});
 
   return {
+    employee_code: row.employee_code || row.code || row.emp_code,
     full_name: row.full_name || row.name || row.doer || row.employee_name,
+    phone: row.phone || row.number || row.mobile || row.contact,
     email: row.email || row.login_email || row.work_email,
+    department: row.department || row.dept,
+    designation: row.designation || row.title || row.role_title,
     password: row.password || row.temp_password || row.temporary_password,
     role: row.role || row.access_role,
     permissions: row
@@ -3110,19 +3164,23 @@ export async function bulkImportTeamLogins(formData: FormData) {
       await admin.from("organization_member_permissions").upsert(permissions);
     }
 
-    const employeeCode = `EMP-${email
-      .split("@")[0]
-      .toUpperCase()
-      .replace(/[^A-Z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")}`;
+    const employeeCode =
+      (parsed.employee_code || "").trim() ||
+      `EMP-${email
+        .split("@")[0]
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")}`;
     const employeePayload = {
       organization_id: organization.id,
       auth_user_id: userId,
       employee_code: employeeCode,
       full_name: fullName,
       login_email: email,
+      phone: normalizePhoneValue((parsed.phone || "").trim()) || null,
+      department: (parsed.department || "").trim() || "General",
+      designation: (parsed.designation || "").trim() || null,
       role,
-      department: "General",
       status: "active",
       app_access_status: "active"
     };
