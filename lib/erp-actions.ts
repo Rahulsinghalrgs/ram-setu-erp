@@ -3027,6 +3027,67 @@ export async function createTeamMemberLogin(formData: FormData) {
   revalidatePath("/dashboard/users");
 }
 
+export async function updateTeamMember(
+  prevState: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  try {
+    const organization = await ensureCanManageTeam();
+    const admin = createAdminClient() as any;
+    const userId = text(formData, "user_id");
+    const fullName = text(formData, "full_name");
+    const requestedRole = text(formData, "role") as AssignableMemberRole;
+    const role: AssignableMemberRole = memberRoles.includes(requestedRole) ? requestedRole : "staff";
+    const password = text(formData, "password");
+
+    if (!userId) return { error: "User ID is required." };
+
+    if (password) {
+      if (password.length < 8) return { error: "Password must be at least 8 characters." };
+      const { error } = await admin.auth.admin.updateUserById(userId, { password });
+      if (error) return { error: error.message };
+    }
+
+    if (fullName) {
+      await admin.from("profiles").upsert({ id: userId, full_name: fullName });
+      await admin.auth.admin.updateUserById(userId, { user_metadata: { full_name: fullName } });
+    }
+
+    await admin
+      .from("organization_members")
+      .update({ role })
+      .eq("organization_id", organization.id)
+      .eq("user_id", userId);
+
+    await admin
+      .from("organization_member_permissions")
+      .delete()
+      .eq("organization_id", organization.id)
+      .eq("user_id", userId);
+
+    const permissions = permissionModules.map((module) => {
+      const canEdit = formData.get(`permission_${module.key}_edit`) === "on";
+      const canView = canEdit || formData.get(`permission_${module.key}_view`) === "on";
+      return { organization_id: organization.id, user_id: userId, module_key: module.key, can_view: canView, can_edit: canEdit };
+    });
+    await admin.from("organization_member_permissions").upsert(permissions);
+
+    const employeeUpdate: Record<string, unknown> = { role };
+    if (fullName) employeeUpdate.full_name = fullName;
+    await admin
+      .from("employee_directory")
+      .update(employeeUpdate)
+      .eq("organization_id", organization.id)
+      .eq("auth_user_id", userId);
+
+    revalidatePath("/dashboard/users");
+    return {};
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to update user.";
+    return { error: message };
+  }
+}
+
 function normalizeTeamLoginCsvRow(headers: string[], rawRow: string[]) {
   const row = headers.reduce<Record<string, string>>((data, header, index) => {
     data[normalizeHeader(header)] = rawRow[index] || "";

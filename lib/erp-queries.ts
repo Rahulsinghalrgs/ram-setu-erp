@@ -330,6 +330,62 @@ export async function getChecklistData(departmentKey?: string) {
   };
 }
 
+export type MemberRow = {
+  userId: string;
+  role: string;
+  displayName: string;
+  email: string | null;
+  employeeCode: string | null;
+  createdAt: string | null;
+  permissions: Record<string, { canView: boolean; canEdit: boolean }>;
+};
+
+export async function getUsersPageData() {
+  const context = await getAppContext();
+  if (!context.isAdmin) {
+    redirect("/dashboard");
+  }
+  const { organization } = context;
+  const supabase = await createClient();
+  const db = supabase as any;
+
+  const [membersResult, employeesResult] = await Promise.all([
+    db
+      .from("organization_members")
+      .select("user_id, role, created_at, profiles(full_name), organization_member_permissions(module_key, can_view, can_edit)")
+      .eq("organization_id", organization.id),
+    db
+      .from("employee_directory")
+      .select("auth_user_id, full_name, login_email, employee_code")
+      .eq("organization_id", organization.id)
+  ]);
+
+  const employees: AnyRecord[] = employeesResult.data || [];
+  const rawMembers: AnyRecord[] = membersResult.data || [];
+
+  const members: MemberRow[] = rawMembers.map((member) => {
+    const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+    const employee = employees.find((e) => e.auth_user_id === member.user_id);
+    const permissions = ((member.organization_member_permissions || []) as AnyRecord[]).reduce<
+      Record<string, { canView: boolean; canEdit: boolean }>
+    >((acc, perm) => {
+      acc[perm.module_key] = { canView: Boolean(perm.can_view), canEdit: Boolean(perm.can_edit) };
+      return acc;
+    }, {});
+    return {
+      userId: member.user_id,
+      role: member.role,
+      displayName: profile?.full_name || employee?.full_name || "Team member",
+      email: employee?.login_email || null,
+      employeeCode: employee?.employee_code || null,
+      createdAt: member.created_at || null,
+      permissions
+    };
+  });
+
+  return { organization, access: context, members };
+}
+
 export async function getDelegationData(departmentKey?: string) {
   const context = await getAppContext();
   const { organization } = context;

@@ -953,7 +953,7 @@ export function TeamLoginBulkImportForm() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Bulk Add Users</p>
           <h2 className="text-xl font-semibold">Upload user CSV</h2>
           <p className="text-sm text-muted-foreground">
-            Ek saath multiple logins banayein. Email match hua to password reset hoga. Password 8+ characters hona chahiye.
+            Create multiple logins at once. If the email already exists, the password will be reset. Password must be 8+ characters.
           </p>
         </div>
         <a
@@ -992,8 +992,8 @@ export function TeamLoginBulkImportForm() {
           </div>
           <p className="mt-3 text-sm font-semibold">Optional module access columns</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Role ke baad har module ke liye column add kar sakte hain (value: <code>view</code> ya <code>edit</code>).
-            Staff bina module ke sirf apne Delegation/Checklist tasks dekhega.
+            After the role column, add one column per module (value: <code>view</code> or <code>edit</code>).
+            Staff without module access will only see their own Delegation/Checklist tasks.
           </p>
           <div className="mt-2 overflow-x-auto rounded-md border bg-white p-3">
             <pre className="text-xs leading-5 text-slate-700">{permissionModules.map((module) => module.key).join(", ")}</pre>
