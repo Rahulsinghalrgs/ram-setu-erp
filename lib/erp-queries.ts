@@ -347,15 +347,16 @@ export async function getUsersPageData() {
     redirect("/dashboard");
   }
   const { organization } = context;
-  const supabase = await createClient();
-  const db = supabase as any;
+  // Use admin client so RLS on organization_members / employee_directory
+  // does not hide other users' rows from the admin.
+  const adminDb = createAdminClient() as any;
 
   const [membersResult, employeesResult] = await Promise.all([
-    db
+    adminDb
       .from("organization_members")
       .select("user_id, role, created_at, profiles(full_name), organization_member_permissions(module_key, can_view, can_edit)")
       .eq("organization_id", organization.id),
-    db
+    adminDb
       .from("employee_directory")
       .select("auth_user_id, full_name, login_email, employee_code")
       .eq("organization_id", organization.id)
