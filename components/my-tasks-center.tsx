@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { CalendarClock, CheckCircle2, ClipboardList, ListTodo, UserCircle2 } from "lucide-react";
 import { completeMyChecklist, completeMyDelegation } from "@/lib/erp-actions";
 
@@ -67,6 +68,20 @@ function statusOptions() {
   ];
 }
 
+function SaveButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+    >
+      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+      {pending ? "Saving…" : "Save"}
+    </button>
+  );
+}
+
 function TaskCard({
   task,
   kind
@@ -125,10 +140,7 @@ function TaskCard({
           placeholder="Add a remark / report (optional)"
           className="h-9 rounded-md border bg-white px-3 text-sm"
         />
-        <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-          Save
-        </button>
+        <SaveButton />
         <input
           name="proof_url"
           defaultValue={task.proof_url || ""}
@@ -217,7 +229,7 @@ function ProfilePanel({ profile }: { profile: MyProfile }) {
         ))}
       </dl>
       <p className="border-t p-4 text-xs leading-5 text-muted-foreground">
-        Profile details update karwana ho to apne admin / HR se sampark karein.
+        To update your profile details, contact your admin or HR.
       </p>
     </section>
   );
@@ -256,9 +268,9 @@ export function MyTasksCenter({ name, profile, delegations, checklists }: MyTask
         <div className="grid gap-5 bg-[linear-gradient(110deg,#081f49,#0f4f8a_58%,#08798f)] bg-[length:180%_180%] p-6 text-white lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100">My Workspace</p>
-            <h1 className="mt-2 text-3xl font-bold md:text-4xl">Namaste{name ? `, ${name}` : ""}</h1>
+            <h1 className="mt-2 text-3xl font-bold md:text-4xl">Welcome{name ? `, ${name}` : ""}</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-blue-50">
-              Aapke saare assigned tasks yahan hain. Delegation aur checklist complete karke status update karein.
+              All your assigned tasks are here. Update status as you complete delegations and checklists.
             </p>
           </div>
           <div className="rounded-md border border-white/20 bg-white/12 px-5 py-4 text-center backdrop-blur">
@@ -314,9 +326,9 @@ export function MyTasksCenter({ name, profile, delegations, checklists }: MyTask
       </div>
 
       {tab === "delegation" ? (
-        <TaskList tasks={delegations} kind="delegation" emptyLabel="Abhi aapko koi delegation task assign nahi hua hai." />
+        <TaskList tasks={delegations} kind="delegation" emptyLabel="No delegation tasks have been assigned to you yet." />
       ) : tab === "checklist" ? (
-        <TaskList tasks={checklists} kind="checklist" emptyLabel="Abhi aapke liye koi checklist task nahi hai." />
+        <TaskList tasks={checklists} kind="checklist" emptyLabel="No checklist tasks assigned to you yet." />
       ) : (
         <ProfilePanel profile={profile} />
       )}

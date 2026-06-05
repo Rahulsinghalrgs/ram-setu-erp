@@ -31,6 +31,7 @@ import type { EmployeeOption } from "@/lib/erp-queries";
 import { OrderPunchClient } from "@/components/order-punch-client";
 import { PurchasePunchClient } from "@/components/purchase-punch-client";
 import { productMasterLabel } from "@/lib/product-master";
+import { SubmitButton } from "@/components/submit-button";
 
 function EmployeeSelect({
   name,
@@ -103,11 +104,7 @@ function Field({
 }
 
 function Submit({ children }: { children: React.ReactNode }) {
-  return (
-    <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-      {children}
-    </button>
-  );
+  return <SubmitButton>{children}</SubmitButton>;
 }
 
 function Toggle({ name, label, defaultChecked = true }: { name: string; label: string; defaultChecked?: boolean }) {

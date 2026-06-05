@@ -2422,7 +2422,7 @@ export async function addTaskDelegation(formData: FormData) {
   const title = text(formData, "title");
 
   if (!title) {
-    throw new Error("Delegation task title required hai.");
+    throw new Error("Delegation task title is required.");
   }
 
   const delegationCode =

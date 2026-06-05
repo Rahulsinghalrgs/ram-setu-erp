@@ -451,7 +451,8 @@ export async function getMyTaskData() {
           "full_name, login_email, employee_code, department, designation, phone, whatsapp, role, reporting_manager, joining_date, employment_type, status"
         )
         .eq("organization_id", organization.id)
-        .eq("auth_user_id", user.id)
+        .or(`auth_user_id.eq.${user.id},login_email.eq.${user.email}`)
+        .limit(1)
         .maybeSingle(),
       db
         .from("task_delegations")
