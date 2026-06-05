@@ -347,26 +347,34 @@ export async function getUsersPageData() {
     redirect("/dashboard");
   }
   const { organization } = context;
-  // Use admin client so RLS on organization_members / employee_directory
-  // does not hide other users' rows from the admin.
   const adminDb = createAdminClient() as any;
 
-  const [membersResult, employeesResult] = await Promise.all([
+  const [membersResult, employeesResult, authResult] = await Promise.all([
     adminDb
       .from("organization_members")
-      .select("user_id, role, created_at, profiles(full_name), organization_member_permissions(module_key, can_view, can_edit)")
+      .select("user_id, role, created_at, organization_member_permissions(module_key, can_view, can_edit)")
       .eq("organization_id", organization.id),
     adminDb
       .from("employee_directory")
       .select("auth_user_id, full_name, login_email, employee_code")
-      .eq("organization_id", organization.id)
+      .eq("organization_id", organization.id),
+    adminDb.auth.admin.listUsers({ perPage: 1000 })
   ]);
 
   const employees: AnyRecord[] = employeesResult.data || [];
   const rawMembers: AnyRecord[] = membersResult.data || [];
 
+  // Build email map from auth users so every member gets an email even if
+  // they have no employee_directory row (e.g. the owner account).
+  const authEmailMap = new Map<string, string>();
+  const authNameMap = new Map<string, string>();
+  for (const u of (authResult.data?.users || [])) {
+    if (u.email) authEmailMap.set(u.id, u.email);
+    const name = u.user_metadata?.full_name || u.user_metadata?.name;
+    if (name) authNameMap.set(u.id, name);
+  }
+
   const members: MemberRow[] = rawMembers.map((member) => {
-    const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
     const employee = employees.find((e) => e.auth_user_id === member.user_id);
     const permissions = ((member.organization_member_permissions || []) as AnyRecord[]).reduce<
       Record<string, { canView: boolean; canEdit: boolean }>
@@ -377,8 +385,8 @@ export async function getUsersPageData() {
     return {
       userId: member.user_id,
       role: member.role,
-      displayName: profile?.full_name || employee?.full_name || "Team member",
-      email: employee?.login_email || null,
+      displayName: employee?.full_name || authNameMap.get(member.user_id) || "Team member",
+      email: employee?.login_email || authEmailMap.get(member.user_id) || null,
       employeeCode: employee?.employee_code || null,
       createdAt: member.created_at || null,
       permissions
