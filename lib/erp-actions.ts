@@ -2661,6 +2661,69 @@ export async function completeMyChecklist(formData: FormData) {
   revalidatePath("/dashboard/mis");
 }
 
+export async function markMyDelegationDone(formData: FormData) {
+  const { supabase, organizationId } = await requireMembership();
+  const delegationId = text(formData, "delegation_id");
+  if (!delegationId) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const { error } = await supabase
+    .from("task_delegations")
+    .update({ status: "done", completed_date: today })
+    .eq("organization_id", organizationId)
+    .eq("id", delegationId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/delegation");
+  revalidatePath("/dashboard/mis");
+}
+
+export async function reviseMyDelegationDate(formData: FormData) {
+  const { supabase, organizationId } = await requireMembership();
+  const delegationId = text(formData, "delegation_id");
+  const revisedDate = text(formData, "revised_date");
+  if (!delegationId || !revisedDate) return;
+  const { error } = await supabase
+    .from("task_delegations")
+    .update({ revised_date: revisedDate })
+    .eq("organization_id", organizationId)
+    .eq("id", delegationId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/delegation");
+  revalidatePath("/dashboard/mis");
+}
+
+export async function markMyChecklistDone(formData: FormData) {
+  const { supabase, organizationId } = await requireMembership();
+  const checklistId = text(formData, "checklist_id");
+  if (!checklistId) return;
+  const { error } = await supabase
+    .from("department_checklists")
+    .update({ status: "done" })
+    .eq("organization_id", organizationId)
+    .eq("id", checklistId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/checklists");
+  revalidatePath("/dashboard/mis");
+}
+
+export async function reviseMyChecklistDate(formData: FormData) {
+  const { supabase, organizationId } = await requireMembership();
+  const checklistId = text(formData, "checklist_id");
+  const dueDate = text(formData, "due_date");
+  if (!checklistId || !dueDate) return;
+  const { error } = await supabase
+    .from("department_checklists")
+    .update({ due_date: dueDate })
+    .eq("organization_id", organizationId)
+    .eq("id", checklistId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/checklists");
+  revalidatePath("/dashboard/mis");
+}
+
 export async function addSalesOrder(formData: FormData) {
   const organization = await ensureWorkspace("sales", "edit");
   const { supabase } = await requireUser();

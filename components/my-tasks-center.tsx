@@ -2,8 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { CalendarClock, CheckCircle2, ClipboardList, ListTodo, UserCircle2 } from "lucide-react";
-import { completeMyChecklist, completeMyDelegation } from "@/lib/erp-actions";
+import { CalendarClock, CheckCircle2, ClipboardList, ListTodo, RotateCcw, UserCircle2 } from "lucide-react";
+import {
+  markMyDelegationDone,
+  reviseMyDelegationDate,
+  markMyChecklistDone,
+  reviseMyChecklistDate
+} from "@/lib/erp-actions";
 
 type TaskRow = Record<string, any>;
 
@@ -59,41 +64,45 @@ function priorityTone(priority: string) {
   return "bg-blue-50 text-blue-700";
 }
 
-function statusOptions() {
-  return [
-    { value: "pending", label: "Pending" },
-    { value: "in_progress", label: "In progress" },
-    { value: "done", label: "Done" },
-    { value: "blocked", label: "Blocked" }
-  ];
-}
-
-function SaveButton() {
+function DoneButton() {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+      className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
     >
       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-      {pending ? "Saving…" : "Save"}
+      {pending ? "Saving…" : "Mark done"}
     </button>
   );
 }
 
-function TaskCard({
-  task,
-  kind
-}: {
-  task: TaskRow;
-  kind: TaskKind;
-}) {
-  const action = kind === "delegation" ? completeMyDelegation : completeMyChecklist;
+function ReviseSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="h-9 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+    >
+      {pending ? "Saving…" : "Confirm"}
+    </button>
+  );
+}
+
+function TaskCard({ task, kind }: { task: TaskRow; kind: TaskKind }) {
+  const [revising, setRevising] = useState(false);
+
+  const doneAction = kind === "delegation" ? markMyDelegationDone : markMyChecklistDone;
+  const reviseAction = kind === "delegation" ? reviseMyDelegationDate : reviseMyChecklistDate;
   const idField = kind === "delegation" ? "delegation_id" : "checklist_id";
+  const dateField = kind === "delegation" ? "revised_date" : "due_date";
   const due = kind === "delegation" ? task.revised_date || task.target_date : task.due_date;
   const code = kind === "delegation" ? task.delegation_code : task.checklist_code;
   const status = String(task.status || "pending");
+  const done = !isOpen(status);
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="rounded-md border bg-white p-4 shadow-sm">
@@ -121,33 +130,54 @@ function TaskCard({
         </div>
       </div>
 
-      <form action={action} className="mt-4 grid gap-2 border-t pt-3 sm:grid-cols-[150px_1fr_auto] sm:items-center">
-        <input type="hidden" name={idField} value={task.id} />
-        <select
-          name="status"
-          defaultValue={isOpen(status) ? status : "done"}
-          className="h-9 rounded-md border bg-white px-2 text-sm font-medium"
-        >
-          {statusOptions().map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <input
-          name="remarks"
-          defaultValue={task.remarks || ""}
-          placeholder="Add a remark / report (optional)"
-          className="h-9 rounded-md border bg-white px-3 text-sm"
-        />
-        <SaveButton />
-        <input
-          name="proof_url"
-          defaultValue={task.proof_url || ""}
-          placeholder="Proof / document link (optional)"
-          className="h-9 rounded-md border bg-white px-3 text-sm sm:col-span-3"
-        />
-      </form>
+      <div className="mt-4 border-t pt-3">
+        {done ? (
+          <p className="text-sm font-medium text-emerald-600">✓ Task completed</p>
+        ) : !revising ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <form action={doneAction}>
+              <input type="hidden" name={idField} value={task.id} />
+              <DoneButton />
+            </form>
+            <button
+              type="button"
+              onClick={() => setRevising(true)}
+              className="inline-flex h-9 items-center gap-2 rounded-md border px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              Revise date
+            </button>
+          </div>
+        ) : (
+          <form
+            action={reviseAction}
+            onSubmit={() => setRevising(false)}
+            className="flex flex-wrap items-center gap-2"
+          >
+            <input type="hidden" name={idField} value={task.id} />
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              New date
+            </label>
+            <input
+              type="date"
+              name={dateField}
+              required
+              min={today}
+              autoFocus
+              className="h-9 rounded-md border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <ReviseSubmitButton />
+            <button
+              type="button"
+              onClick={() => setRevising(false)}
+              className="h-9 rounded-md border px-3 text-sm text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
@@ -270,7 +300,7 @@ export function MyTasksCenter({ name, profile, delegations, checklists }: MyTask
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100">My Workspace</p>
             <h1 className="mt-2 text-3xl font-bold md:text-4xl">Welcome{name ? `, ${name}` : ""}</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-blue-50">
-              All your assigned tasks are here. Update status as you complete delegations and checklists.
+              All your assigned tasks are here. Mark tasks done or revise the date if needed.
             </p>
           </div>
           <div className="rounded-md border border-white/20 bg-white/12 px-5 py-4 text-center backdrop-blur">
