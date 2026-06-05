@@ -21,10 +21,10 @@ export default function DashboardError({
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600">
           <AlertTriangle className="h-6 w-6" aria-hidden="true" />
         </span>
-        <h1 className="mt-4 text-xl font-semibold text-slate-900">Kuch galat ho gaya</h1>
+        <h1 className="mt-4 text-xl font-semibold text-slate-900">Something went wrong</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Yeh page load karte waqt ek error aaya. Dobara try karein. Agar dikkat bani rahe to admin ko ye reference
-          code bhej dein.
+          An error occurred while loading this page. Please try again. If the problem persists, send the reference
+          code below to your admin.
         </p>
         {error.digest ? (
           <p className="mt-3 inline-block rounded-md bg-slate-100 px-3 py-1 font-mono text-xs text-slate-600">

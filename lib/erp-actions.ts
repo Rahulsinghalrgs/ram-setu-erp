@@ -2969,57 +2969,47 @@ export async function createTeamLoginLink(formData: FormData) {
   revalidatePath("/dashboard/settings");
 }
 
-export async function createTeamMemberLogin(formData: FormData) {
-  const organization = await ensureCanManageTeam();
-  const email = text(formData, "email").toLowerCase();
-  const fullName = text(formData, "full_name");
-  const password = text(formData, "password");
-  const phone = normalizePhoneValue(text(formData, "phone"));
-  const department = text(formData, "department") || "General";
-  const designation = text(formData, "designation") || null;
-  const providedEmployeeCode = text(formData, "employee_code");
-  const requestedRole = text(formData, "role") as AssignableMemberRole;
-  const role: AssignableMemberRole = memberRoles.includes(requestedRole) ? requestedRole : "staff";
+export async function createTeamMemberLogin(
+  prevState: { error?: string } | null,
+  formData: FormData
+): Promise<{ error?: string }> {
+  const organization = await ensureCanManageTeam(); // redirect if not admin — must stay outside try-catch
+  try {
+    const email = text(formData, "email").toLowerCase();
+    const fullName = text(formData, "full_name");
+    const password = text(formData, "password");
+    const phone = normalizePhoneValue(text(formData, "phone"));
+    const department = text(formData, "department") || "General";
+    const designation = text(formData, "designation") || null;
+    const providedEmployeeCode = text(formData, "employee_code");
+    const requestedRole = text(formData, "role") as AssignableMemberRole;
+    const role: AssignableMemberRole = memberRoles.includes(requestedRole) ? requestedRole : "staff";
 
-  if (password.length < 8) {
-    throw new Error("Team password must be at least 8 characters.");
-  }
+    if (!email) return { error: "Email is required." };
+    if (password.length < 8) return { error: "Password must be at least 8 characters." };
 
-  const admin = createAdminClient() as any;
-  let userId = await findAuthUserIdByEmail(email);
+    const admin = createAdminClient() as any;
+    let userId = await findAuthUserIdByEmail(email);
 
-  if (userId) {
-    const { error } = await admin.auth.admin.updateUserById(userId, {
-      password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName || email.split("@")[0]
-      }
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-  } else {
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName || email.split("@")[0]
-      }
-    });
-
-    if (error) {
-      throw new Error(error.message);
+    if (userId) {
+      const { error } = await admin.auth.admin.updateUserById(userId, {
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName || email.split("@")[0] }
+      });
+      if (error) return { error: error.message };
+    } else {
+      const { data, error } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName || email.split("@")[0] }
+      });
+      if (error) return { error: error.message };
+      userId = data.user?.id || null;
     }
 
-    userId = data.user?.id || null;
-  }
-
-  if (!userId) {
-    throw new Error("Could not create team login.");
-  }
+    if (!userId) return { error: "Could not create login. Please try again." };
 
   await admin.from("profiles").upsert({
     id: userId,
@@ -3081,13 +3071,18 @@ export async function createTeamMemberLogin(formData: FormData) {
     .maybeSingle();
 
   if (existingEmployee?.id) {
-    await admin.from("employee_directory").update(employeePayload).eq("id", existingEmployee.id);
-  } else {
-    await admin.from("employee_directory").upsert(employeePayload, { onConflict: "organization_id,employee_code" });
-  }
+      await admin.from("employee_directory").update(employeePayload).eq("id", existingEmployee.id);
+    } else {
+      await admin.from("employee_directory").upsert(employeePayload, { onConflict: "organization_id,employee_code" });
+    }
 
-  revalidatePath("/dashboard/settings");
-  revalidatePath("/dashboard/users");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/users");
+    return {};
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to create login.";
+    return { error: message };
+  }
 }
 
 export async function updateTeamMember(
@@ -3170,8 +3165,12 @@ function normalizeTeamLoginCsvRow(headers: string[], rawRow: string[]) {
   };
 }
 
-export async function bulkImportTeamLogins(formData: FormData) {
-  const organization = await ensureCanManageTeam();
+export async function bulkImportTeamLogins(
+  prevState: { error?: string; message?: string } | null,
+  formData: FormData
+): Promise<{ error?: string; message?: string }> {
+  const organization = await ensureCanManageTeam(); // redirect if not admin
+  try {
   const file = formData.get("user_csv");
   const pasted = text(formData, "user_csv_text");
   let csvText = pasted;
@@ -3181,20 +3180,20 @@ export async function bulkImportTeamLogins(formData: FormData) {
   }
 
   if (!csvText.trim()) {
-    throw new Error("CSV file ya pasted CSV data required hai.");
+    return { error: "Please upload a CSV file or paste CSV data." };
   }
 
   const parsedRows = parseCsv(csvText);
   const [headers, ...rows] = parsedRows;
 
   if (!headers?.length || !rows.length) {
-    throw new Error("CSV me header row aur user rows required hain.");
+    return { error: "CSV must have a header row and at least one data row." };
   }
 
   const admin = createAdminClient() as any;
   const { data: existingUsers, error: listError } = await admin.auth.admin.listUsers();
   if (listError) {
-    throw new Error(listError.message);
+    return { error: listError.message };
   }
   const userIdByEmail = new Map<string, string>(
     (existingUsers?.users || []).map((entry: any) => [String(entry.email || "").toLowerCase(), entry.id])
@@ -3316,11 +3315,20 @@ export async function bulkImportTeamLogins(formData: FormData) {
   }
 
   if (created + updated === 0) {
-    throw new Error(
-      `Koi valid user nahi bana. ${skipped.length ? `Skipped: ${skipped.join("; ")}` : "CSV me email/password sahi se daalein."}`
-    );
+    return {
+      error: `No users created.${skipped.length ? ` Skipped: ${skipped.join("; ")}` : " Check that email and password (8+ chars) are correct in the CSV."}`
+    };
   }
 
   revalidatePath("/dashboard/users");
   revalidatePath("/dashboard/settings");
+  const parts = [];
+  if (created) parts.push(`${created} created`);
+  if (updated) parts.push(`${updated} updated`);
+  if (skipped.length) parts.push(`${skipped.length} skipped`);
+  return { message: parts.join(", ") + "." };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Bulk import failed.";
+    return { error: message };
+  }
 }
