@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import type { PermissionAction, PermissionModuleKey } from "@/lib/access-control";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type AppContext = {
   organization: {
@@ -434,6 +435,9 @@ export async function getMyTaskData() {
   const { organization } = context;
   const supabase = await createClient();
   const db = supabase as any;
+  // Use admin client for task reads so RLS never blocks a staff user
+  // from seeing their own assigned tasks.
+  const adminDb = createAdminClient() as any;
   const {
     data: { user }
   } = await supabase.auth.getUser();
@@ -441,6 +445,12 @@ export async function getMyTaskData() {
   if (!user) {
     redirect("/auth");
   }
+
+  // Build the employee OR filter — only include login_email clause when
+  // we have an actual email, otherwise the filter becomes "login_email = 'null'".
+  const employeeOrFilter = user.email
+    ? `auth_user_id.eq.${user.id},login_email.eq.${user.email}`
+    : `auth_user_id.eq.${user.id}`;
 
   const [{ data: profileRow }, { data: employee }, { data: delegationRows }, { data: checklistRows }] =
     await Promise.all([
@@ -451,16 +461,16 @@ export async function getMyTaskData() {
           "full_name, login_email, employee_code, department, designation, phone, whatsapp, role, reporting_manager, joining_date, employment_type, status"
         )
         .eq("organization_id", organization.id)
-        .or(`auth_user_id.eq.${user.id},login_email.eq.${user.email}`)
+        .or(employeeOrFilter)
         .limit(1)
         .maybeSingle(),
-      db
+      adminDb
         .from("task_delegations")
         .select("*")
         .eq("organization_id", organization.id)
         .order("target_date", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false }),
-      db
+      adminDb
         .from("department_checklists")
         .select("*")
         .eq("organization_id", organization.id)

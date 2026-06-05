@@ -57,9 +57,16 @@ function EmployeeSelect({
       >
         <option value="">Select employee</option>
         {employees.map((employee) => (
-          <option key={employee.email || employee.code || employee.name} value={employee.name}>
+          <option
+            key={employee.email || employee.code || employee.name}
+            value={employee.email || employee.name}
+          >
             {employee.name}
-            {employee.code ? ` (${employee.code})` : ""}
+            {employee.email
+              ? ` — ${employee.email}`
+              : employee.code
+                ? ` (${employee.code})`
+                : ""}
           </option>
         ))}
       </select>
