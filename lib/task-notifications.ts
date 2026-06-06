@@ -25,17 +25,18 @@ function sanitizeParam(value: string) {
   return value.replace(/[\n\r\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
 }
 
-async function findEmployeePhone(db: any, organizationId: string, name: string | null) {
-  if (!name) return null;
+async function findEmployeePhone(db: any, organizationId: string, nameOrEmail: string | null) {
+  if (!nameOrEmail) return null;
+  const isEmail = nameOrEmail.includes("@");
   const { data } = await db
     .from("employee_directory")
     .select("full_name, phone, whatsapp")
     .eq("organization_id", organizationId)
-    .eq("full_name", name)
+    .eq(isEmail ? "login_email" : "full_name", nameOrEmail)
     .limit(1)
     .maybeSingle();
   const phone = data?.whatsapp || data?.phone || null;
-  return phone ? { name: data?.full_name || name, phone: String(phone) } : null;
+  return phone ? { name: data?.full_name || nameOrEmail, phone: String(phone) } : null;
 }
 
 async function logTaskMessage(
