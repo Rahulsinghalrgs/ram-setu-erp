@@ -349,10 +349,15 @@ export async function getUsersPageData() {
   const { organization } = context;
   const adminDb = createAdminClient() as any;
 
-  const [membersResult, employeesResult, authResult] = await Promise.all([
+  // Three flat queries — no nested PostgREST joins to avoid FK inference issues.
+  const [membersResult, permissionsResult, employeesResult, authResult] = await Promise.all([
     adminDb
       .from("organization_members")
-      .select("user_id, role, created_at, organization_member_permissions(module_key, can_view, can_edit)")
+      .select("user_id, role, created_at")
+      .eq("organization_id", organization.id),
+    adminDb
+      .from("organization_member_permissions")
+      .select("user_id, module_key, can_view, can_edit")
       .eq("organization_id", organization.id),
     adminDb
       .from("employee_directory")
@@ -361,14 +366,22 @@ export async function getUsersPageData() {
     adminDb.auth.admin.listUsers({ perPage: 1000 })
   ]);
 
-  const employees: AnyRecord[] = employeesResult.data || [];
   const rawMembers: AnyRecord[] = membersResult.data || [];
+  const rawPerms: AnyRecord[] = permissionsResult.data || [];
+  const employees: AnyRecord[] = employeesResult.data || [];
 
-  // Build email map from auth users so every member gets an email even if
-  // they have no employee_directory row (e.g. the owner account).
+  // Index permissions by user_id.
+  const permsByUser = new Map<string, Record<string, { canView: boolean; canEdit: boolean }>>();
+  for (const perm of rawPerms) {
+    const existing = permsByUser.get(perm.user_id) || {};
+    existing[perm.module_key] = { canView: Boolean(perm.can_view), canEdit: Boolean(perm.can_edit) };
+    permsByUser.set(perm.user_id, existing);
+  }
+
+  // Build email/name fallback from auth users (covers owner with no employee_directory row).
   const authEmailMap = new Map<string, string>();
   const authNameMap = new Map<string, string>();
-  for (const u of (authResult.data?.users || [])) {
+  for (const u of (authResult.data?.users || []) as AnyRecord[]) {
     if (u.email) authEmailMap.set(u.id, u.email);
     const name = u.user_metadata?.full_name || u.user_metadata?.name;
     if (name) authNameMap.set(u.id, name);
@@ -376,12 +389,6 @@ export async function getUsersPageData() {
 
   const members: MemberRow[] = rawMembers.map((member) => {
     const employee = employees.find((e) => e.auth_user_id === member.user_id);
-    const permissions = ((member.organization_member_permissions || []) as AnyRecord[]).reduce<
-      Record<string, { canView: boolean; canEdit: boolean }>
-    >((acc, perm) => {
-      acc[perm.module_key] = { canView: Boolean(perm.can_view), canEdit: Boolean(perm.can_edit) };
-      return acc;
-    }, {});
     return {
       userId: member.user_id,
       role: member.role,
@@ -389,7 +396,7 @@ export async function getUsersPageData() {
       email: employee?.login_email || authEmailMap.get(member.user_id) || null,
       employeeCode: employee?.employee_code || null,
       createdAt: member.created_at || null,
-      permissions
+      permissions: permsByUser.get(member.user_id) || {}
     };
   });
 
